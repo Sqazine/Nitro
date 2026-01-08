@@ -1,31 +1,29 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Common/Common.h"
 class SimpleEQAudioProcessor : public juce::AudioProcessor
 #if JucePlugin_Enable_ARA
-	, public juce::AudioProcessorARAExtension
+	,
+							   public juce::AudioProcessorARAExtension
 #endif
 {
 public:
-	
 	SimpleEQAudioProcessor();
 	~SimpleEQAudioProcessor() override;
 
-	
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-	bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+	bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
 #endif
 
-	void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+	void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
 
-	
-	juce::AudioProcessorEditor* createEditor() override;
+	juce::AudioProcessorEditor *createEditor() override;
 	bool hasEditor() const override;
 
-	
 	const juce::String getName() const override;
 
 	bool acceptsMidi() const override;
@@ -33,26 +31,23 @@ public:
 	bool isMidiEffect() const override;
 	double getTailLengthSeconds() const override;
 
-	
 	int getNumPrograms() override;
 	int getCurrentProgram() override;
 	void setCurrentProgram(int index) override;
 	const juce::String getProgramName(int index) override;
-	void changeProgramName(int index, const juce::String& newName) override;
+	void changeProgramName(int index, const juce::String &newName) override;
 
-	
-	void getStateInformation(juce::MemoryBlock& destData) override;
-	void setStateInformation(const void* data, int sizeInBytes) override;
+	void getStateInformation(juce::MemoryBlock &destData) override;
+	void setStateInformation(const void *data, int sizeInBytes) override;
 
 private:
+	juce::AudioProcessorValueTreeState mApvts;
+	PluginParameterSlider mLowCutFreq;
+	PluginParameterSlider mLowCutQuality;
+	PluginParameterSlider mHighCutFreq;
+	PluginParameterSlider mHighCutQuality;
 
-	juce::AudioParameterFloat* lowCutFreq;
-	juce::AudioParameterFloat* lowCutQuality;
-	juce::AudioParameterFloat* highCutFreq;
-	juce::AudioParameterFloat* highCutQuality;
+	juce::dsp::ProcessorChain<DspIIRFilterFloat, DspIIRFilterFloat> mLeftChain, mRightChain;
 
-	juce::dsp::ProcessorChain< juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Filter<float>> leftChain, rightChain;
-
-	
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleEQAudioProcessor)
 };

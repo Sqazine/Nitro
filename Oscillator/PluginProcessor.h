@@ -1,23 +1,23 @@
 #pragma once
 
 #include <JuceHeader.h>
-
-class OscillatorAudioProcessor  : public juce::AudioProcessor
+#include "Common/Common.h"
+class OscillatorAudioProcessor : public juce::AudioProcessor
 {
 public:
     OscillatorAudioProcessor();
     ~OscillatorAudioProcessor() override;
 
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
-   #ifndef JucePlugin_PreferredChannelConfigurations
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-   #endif
+#ifndef JucePlugin_PreferredChannelConfigurations
+    bool isBusesLayoutSupported(const BusesLayout &layouts) const override;
+#endif
 
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock(juce::AudioBuffer<float> &, juce::MidiBuffer &) override;
 
-    juce::AudioProcessorEditor* createEditor() override;
+    juce::AudioProcessorEditor *createEditor() override;
     bool hasEditor() const override;
 
     const juce::String getName() const override;
@@ -29,19 +29,20 @@ public:
 
     int getNumPrograms() override;
     int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
+    void setCurrentProgram(int index) override;
+    const juce::String getProgramName(int index) override;
+    void changeProgramName(int index, const juce::String &newName) override;
 
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
+    void getStateInformation(juce::MemoryBlock &destData) override;
+    void setStateInformation(const void *data, int sizeInBytes) override;
 
-    void reset()override;
+    void reset() override;
 
 private:
-    juce::dsp::Oscillator<float> oscillator;
-    juce::AudioParameterFloat* frequency;
-    float previousFrequency;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OscillatorAudioProcessor)
+juce::AudioProcessorValueTreeState mApvts;
+    juce::dsp::Oscillator<float> mOscillator;
+    PluginParameterSlider mFrequency;
+    float mPreviousFrequency;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OscillatorAudioProcessor)
 };

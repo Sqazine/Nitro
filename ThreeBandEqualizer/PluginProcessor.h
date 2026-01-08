@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Common/Common.h"
 
 enum ChainIndex
 {
@@ -75,7 +76,7 @@ public:
 
 private:
 
-	using Filter = juce::dsp::IIR::Filter<float>;
+	using Filter = DspIIRFilterFloat;
 	using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
 	using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
 

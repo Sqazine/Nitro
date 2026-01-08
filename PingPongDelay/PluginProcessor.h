@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "Common/PluginParameterSlider.h"
+#include "Common/Common.h"
 
 class PingPongDelayAudioProcessor  : public juce::AudioProcessor
                             #if JucePlugin_Enable_ARA

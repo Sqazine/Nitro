@@ -1,8 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
-#include "Common/PluginParameterSlider.h"
-#include "Common/PluginParameterComboBox.h"
-#include "Common/PluginParameterToggle.h"
+#include "Common/Common.h"
 
 class ChorusAudioProcessor : public juce::AudioProcessor
 {

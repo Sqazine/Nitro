@@ -2,52 +2,30 @@
 
 #include "PluginProcessor.h"
 
-
 DistortionAudioProcessor::DistortionAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor(BusesProperties()
-#if ! JucePlugin_IsMidiEffect
-#if ! JucePlugin_IsSynth
-        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#if !JucePlugin_IsMidiEffect
+#if !JucePlugin_IsSynth
+                         .withInput("Input", juce::AudioChannelSet::stereo(), true)
 #endif
-        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+                         .withOutput("Output", juce::AudioChannelSet::stereo(), true)
 #endif
-    )
+                         )
 #endif
-    , parameters(*this, nullptr, juce::Identifier("Distortion"), {
-        std::make_unique<juce::AudioParameterFloat>(IDs::inputVolume,"distortion",juce::NormalisableRange<float>(0.0f,60.0f),0.0f," dB",juce::AudioProcessorParameter::genericParameter,[](float value,int)
-            {
-            return static_cast<juce::String>(round(value * 100.f) / 100.f);
-            },
-            nullptr),
-        std::make_unique<juce::AudioParameterFloat>(IDs::outputVolume,"level",juce::NormalisableRange<float>(-40.0f,40.0f),0.0f," dB",juce::AudioProcessorParameter::genericParameter,[](float value,int)
-            {
-            return static_cast<juce::String>(round(value * 100.f) / 100.f);
-            },
-            nullptr),
-        std::make_unique<juce::AudioParameterFloat>(IDs::HPFreq,"highpass freq",juce::NormalisableRange<float>(20.0f,20000.0f,0.01f,0.2299f),0.0f," Hz",juce::AudioProcessorParameter::genericParameter,[](float value,int)
-            {
-            return static_cast<juce::String>(round(value * 100.f) / 100.f);
-            },
-            nullptr),
-        std::make_unique<juce::AudioParameterFloat>(IDs::LPFreq,"lowpass freq",juce::NormalisableRange<float>(20.0f,20000.0f,0.01f,0.2299f),20000.0f," Hz",juce::AudioProcessorParameter::genericParameter,[](float value,int)
-            {
-            return static_cast<juce::String>(round(value * 100.f) / 100.f);
-            },
-            nullptr),
-        std::make_unique<juce::AudioParameterFloat>(IDs::wetDry,"mix",juce::NormalisableRange<float>(0.0f,1.0f),0.5f,juce::String(),juce::AudioProcessorParameter::genericParameter,[](float value,int)
-            {
-            return static_cast<juce::String>(round(value * 100.f * 100.0f) / 100.f);
-            },
-            nullptr)
-        })
+      ,
+      mApvts(*this, nullptr),
+      mDistortion(mApvts, "Distortion", "dB", 0.0f, 60.0f, 0.0f),
+      mLevel(mApvts, "Level", "dB", -40.0f, 40.0f, 0.0f),
+      mHighPassFrequency(mApvts, "High Pass Frequency", "Hz", 20.0f, 20000.0f, 20.0f),
+      mLowPassFrequency(mApvts, "Low Pass Frequency", "Hz", 20.0f, 20000.0f, 20000.0f),
+      mWetDry(mApvts, "Dry/Wet", "", 0.0f, 1.0f, 0.5f)
 {
 }
 
 DistortionAudioProcessor::~DistortionAudioProcessor()
 {
 }
-
 
 const juce::String DistortionAudioProcessor::getName() const
 {
@@ -88,7 +66,7 @@ double DistortionAudioProcessor::getTailLengthSeconds() const
 
 int DistortionAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
+    return 1; // NB: some hosts don't cope very well if you tell them there are 0 programs,
     // so this should be at least 1, even if you're not really implementing programs.
 }
 
@@ -110,7 +88,6 @@ void DistortionAudioProcessor::changeProgramName(int index, const juce::String &
 {
 }
 
-
 void DistortionAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     juce::dsp::ProcessSpec spec;
@@ -118,20 +95,20 @@ void DistortionAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumOutputChannels();
 
-    sampleRate = static_cast<float>(spec.sampleRate);
-    maxBlockSize = spec.maximumBlockSize;
-    numChannels = spec.numChannels;
+    mSampleRate = static_cast<float>(spec.sampleRate);
+    mMaxBlockSize = spec.maximumBlockSize;
+    mNumChannels = spec.numChannels;
 
-    inputVolume.prepare(spec);
-    outputVolume.prepare(spec);
-    lowPassFilter.prepare(spec);
-    highPassFilter.prepare(spec);
+    mInputVolume.prepare(spec);
+    mOutputVolume.prepare(spec);
+    mLowPassFilter.prepare(spec);
+    mHighPassFilter.prepare(spec);
 
-    oversampling->initProcessing(static_cast<size_t>(maxBlockSize));
+    mOversampling->initProcessing(static_cast<size_t>(mMaxBlockSize));
 
-    oversampling->reset();
-    lowPassFilter.reset();
-    highPassFilter.reset();
+    mOversampling->reset();
+    mLowPassFilter.reset();
+    mHighPassFilter.reset();
 }
 
 void DistortionAudioProcessor::releaseResources()
@@ -151,12 +128,11 @@ bool DistortionAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts
     // In this template code we only support mono or stereo.
     // Some plugin hosts, such as certain GarageBand versions, will only
     // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
-#if ! JucePlugin_IsSynth
+        // This checks if the input layout matches the output layout
+#if !JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
 #endif
@@ -176,21 +152,21 @@ void DistortionAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, ju
     for (auto i = juce::jmin(2, totalNumInputChannels); i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, numSamples);
 
-    float inputVol = *parameters.getRawParameterValue(IDs::inputVolume);
-    float outputVol = *parameters.getRawParameterValue(IDs::outputVolume);
+    float inputVol = mDistortion.getTargetValue();
+    float outputVol = mLevel.getTargetValue();
 
     auto inputdB = juce::Decibels::decibelsToGain(inputVol);
     auto outputdB = juce::Decibels::decibelsToGain(outputVol);
 
-    if (inputVolume.getGainLinear() != inputdB)
-        inputVolume.setGainLinear(inputdB);
-    if (outputVolume.getGainLinear() != outputdB)
-        outputVolume.setGainLinear(outputdB);
+    if (mInputVolume.getGainLinear() != inputdB)
+        mInputVolume.setGainLinear(inputdB);
+    if (mOutputVolume.getGainLinear() != outputdB)
+        mOutputVolume.setGainLinear(outputdB);
 
-    float freqLowPass = *parameters.getRawParameterValue(IDs::LPFreq);
-    *lowPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeFirstOrderLowPass(sampleRate, freqLowPass);
-    float freqHighPass = *parameters.getRawParameterValue(IDs::HPFreq);
-    *highPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeFirstOrderHighPass(sampleRate, freqHighPass);
+    float freqLowPass = mLowPassFrequency.getTargetValue();
+    *mLowPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeFirstOrderLowPass(mSampleRate, freqLowPass);
+    float freqHighPass = mHighPassFrequency.getTargetValue();
+    *mHighPassFilter.state = *juce::dsp::IIR::Coefficients<float>::makeFirstOrderHighPass(mSampleRate, freqHighPass);
 
     juce::dsp::AudioBlock<float> block(buffer);
     if (block.getNumChannels() > 2)
@@ -199,22 +175,21 @@ void DistortionAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, ju
     auto ctx = juce::dsp::ProcessContextReplacing<float>(block);
 
     juce::ScopedNoDenormals noDenormals;
-    inputVolume.process(ctx);
-    highPassFilter.process(ctx);
+    mInputVolume.process(ctx);
+    mHighPassFilter.process(ctx);
 
-    juce::dsp::AudioBlock<float> oversampledBlock = oversampling->processSamplesUp(ctx.getInputBlock());
+    juce::dsp::AudioBlock<float> oversampledBlock = mOversampling->processSamplesUp(ctx.getInputBlock());
     auto waveshaperContext = juce::dsp::ProcessContextReplacing<float>(oversampledBlock);
 
-    waveShapers.process(waveshaperContext);
+    mWaveShapers.process(waveshaperContext);
 
     waveshaperContext.getOutputBlock() *= 0.7f;
 
-    oversampling->processSamplesDown(ctx.getOutputBlock());
+    mOversampling->processSamplesDown(ctx.getOutputBlock());
 
-    lowPassFilter.process(ctx);
-    outputVolume.process(ctx);
+    mLowPassFilter.process(ctx);
+    mOutputVolume.process(ctx);
 }
-
 
 bool DistortionAudioProcessor::hasEditor() const
 {
@@ -226,10 +201,9 @@ juce::AudioProcessorEditor *DistortionAudioProcessor::createEditor()
     return new juce::GenericAudioProcessorEditor(*this);
 }
 
-
 void DistortionAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
-    auto state = parameters.copyState();
+    auto state = mApvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
@@ -239,8 +213,8 @@ void DistortionAudioProcessor::setStateInformation(const void *data, int sizeInB
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
 
     if (xmlState.get() != nullptr)
-        if (xmlState->hasTagName(parameters.state.getType()))
-            parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
+        if (xmlState->hasTagName(mApvts.state.getType()))
+            mApvts.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
 // This creates new instances of the plugin..

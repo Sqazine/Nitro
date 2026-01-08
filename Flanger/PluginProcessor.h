@@ -4,10 +4,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
-#include "Common/PluginParameterSlider.h"
-#include "Common/PluginParameterToggle.h"
-#include "Common/PluginParameterComboBox.h"
-#include "Common/Utils.h"
+#include "Common/Common.h"
 
 class FlangerAudioProcessor : public juce::AudioProcessor
 #if JucePlugin_Enable_ARA

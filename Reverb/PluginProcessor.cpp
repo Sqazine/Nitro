@@ -2,30 +2,31 @@
 
 #include "PluginProcessor.h"
 
-
 ReverbAudioProcessor::ReverbAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
 	: AudioProcessor(BusesProperties()
-#if ! JucePlugin_IsMidiEffect
-#if ! JucePlugin_IsSynth
-		.withInput("Input", juce::AudioChannelSet::stereo(), true)
+#if !JucePlugin_IsMidiEffect
+#if !JucePlugin_IsSynth
+						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 #endif
-		.withOutput("Output", juce::AudioChannelSet::stereo(), true)
+						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)
 #endif
-	)
+						 )
 #endif
+	  ,
+	  mApvts(*this, nullptr),
+	  mRoomSize(mApvts, "Room Size", "", 0.0f, 1.0f, 0.5f),
+	  mDamping(mApvts, "Damping", "", 0.0f, 1.0f, 0.5f),
+	  mWidth(mApvts, "Width", "", 0.0f, 1.0f, 0.5f),
+	  mDryWet(mApvts, "Dry/Wet", "", 0.0f, 1.0f, 0.5f),
+	  mFreeze(mApvts, "Freeze", "", 0.0f, 1.0f, 0.5f)
+
 {
-	addParameter(roomSize = new juce::AudioParameterFloat("Room Size", "Room Size", 0.0f, 1.0f, 0.5f));
-	addParameter(damping = new juce::AudioParameterFloat("Damping", "Damping", 0.0f, 1.0f, 0.5f));
-	addParameter(width = new juce::AudioParameterFloat("Width", "Width", 0.0f, 1.0f, 0.5f));
-	addParameter(dry_Wet = new juce::AudioParameterFloat("Dry/Wet", "Dry/Wet", 0.0f, 1.0f, 0.5f));
-	addParameter(freeze = new juce::AudioParameterFloat("Freeze", "Freeze",0.0f,1.0f,0.5f));
 }
 
 ReverbAudioProcessor::~ReverbAudioProcessor()
 {
 }
-
 
 const juce::String ReverbAudioProcessor::getName() const
 {
@@ -66,8 +67,8 @@ double ReverbAudioProcessor::getTailLengthSeconds() const
 
 int ReverbAudioProcessor::getNumPrograms()
 {
-	return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-				// so this should be at least 1, even if you're not really implementing programs.
+	return 1; // NB: some hosts don't cope very well if you tell them there are 0 programs,
+			  // so this should be at least 1, even if you're not really implementing programs.
 }
 
 int ReverbAudioProcessor::getCurrentProgram()
@@ -84,10 +85,9 @@ const juce::String ReverbAudioProcessor::getProgramName(int index)
 	return {};
 }
 
-void ReverbAudioProcessor::changeProgramName(int index, const juce::String& newName)
+void ReverbAudioProcessor::changeProgramName(int index, const juce::String &newName)
 {
 }
-
 
 void ReverbAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
@@ -97,8 +97,8 @@ void ReverbAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 	spec.maximumBlockSize = samplesPerBlock;
 	spec.numChannels = 1;
 
-	leftReverb.prepare(spec);
-	rightReverb.prepare(spec);
+	mLeftReverb.prepare(spec);
+	mRightReverb.prepare(spec);
 }
 
 void ReverbAudioProcessor::releaseResources()
@@ -108,7 +108,7 @@ void ReverbAudioProcessor::releaseResources()
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool ReverbAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+bool ReverbAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 {
 #if JucePlugin_IsMidiEffect
 	juce::ignoreUnused(layouts);
@@ -118,12 +118,11 @@ bool ReverbAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 	// In this template code we only support mono or stereo.
 	// Some plugin hosts, such as certain GarageBand versions, will only
 	// load plugins that support stereo bus layouts.
-	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-		&& layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
 		return false;
 
-	// This checks if the input layout matches the output layout
-#if ! JucePlugin_IsSynth
+		// This checks if the input layout matches the output layout
+#if !JucePlugin_IsSynth
 	if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
 		return false;
 #endif
@@ -133,7 +132,7 @@ bool ReverbAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 }
 #endif
 
-void ReverbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void ReverbAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
 	juce::ScopedNoDenormals noDenormals;
 	auto totalNumInputChannels = getTotalNumInputChannels();
@@ -148,15 +147,15 @@ void ReverbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	params.roomSize = *roomSize;
-	params.damping = *damping;
-	params.width = *width;
-	params.wetLevel = *dry_Wet;
-	params.dryLevel = 1.0f-params.wetLevel;
-	params.freezeMode = *freeze;
+	mReverbParams.roomSize = mRoomSize.getTargetValue();
+	mReverbParams.damping = mDamping.getTargetValue();
+	mReverbParams.width = mWidth.getTargetValue();
+	mReverbParams.wetLevel = mDryWet.getTargetValue();
+	mReverbParams.dryLevel = 1.0f - mReverbParams.wetLevel;
+	mReverbParams.freezeMode = mFreeze.getTargetValue();
 
-	leftReverb.setParameters(params);
-	rightReverb.setParameters(params);
+	mLeftReverb.setParameters(mReverbParams);
+	mRightReverb.setParameters(mReverbParams);
 
 	juce::dsp::AudioBlock<float> block(buffer);
 
@@ -165,39 +164,36 @@ void ReverbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
 	juce::dsp::ProcessContextReplacing<float> leftContext(block);
 	juce::dsp::ProcessContextReplacing<float> rightContext(block);
-	leftReverb.process(leftContext);
-	rightReverb.process(rightContext);
+	mLeftReverb.process(leftContext);
+	mRightReverb.process(rightContext);
 }
-
 
 bool ReverbAudioProcessor::hasEditor() const
 {
 	return true; // (change this to false if you choose to not supply an editor)
 }
 
-juce::AudioProcessorEditor* ReverbAudioProcessor::createEditor()
+juce::AudioProcessorEditor *ReverbAudioProcessor::createEditor()
 {
 	return new juce::GenericAudioProcessorEditor(*this);
 }
 
-
-void ReverbAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+void ReverbAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
 	// You should use this method to store your parameters in the memory block.
 	// You could do that either as raw data, or use the XML or ValueTree classes
 	// as intermediaries to make it easy to save and load complex data.
 }
 
-void ReverbAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+void ReverbAudioProcessor::setStateInformation(const void *data, int sizeInBytes)
 {
 	// You should use this method to restore your parameters from this memory block,
 	// whose contents will have been created by the getStateInformation() call.
 }
 
-
 // This creates new instances of the plugin..
 #ifdef EXPORT_CREATE_FILTER_FUNCTION
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
 {
 	return new ReverbAudioProcessor();
 }

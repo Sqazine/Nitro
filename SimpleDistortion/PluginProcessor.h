@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-
+#include "Common/Common.h"
 class SimpleDistortionAudioProcessor  : public juce::AudioProcessor
                             #if JucePlugin_Enable_ARA
                              , public juce::AudioProcessorARAExtension
@@ -52,11 +52,12 @@ private:
         waveShaperIndex
     };
 
-    juce::dsp::ProcessorChain<juce::dsp::WaveShaper<float>> processChain;
+    juce::dsp::ProcessorChain<juce::dsp::WaveShaper<float>> mProcessChain;
 
-	juce::AudioParameterFloat* gain;
-	juce::AudioParameterBool* invertPhase;
-	float previousGain;
+    juce::AudioProcessorValueTreeState mApvts;
+	PluginParameterSlider mGain;
+	PluginParameterToggle mInvertPhase;
+	float mPreviousGain;
 
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SimpleDistortionAudioProcessor)

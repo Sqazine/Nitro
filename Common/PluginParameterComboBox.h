@@ -4,11 +4,11 @@ class PluginParameterComboBox : public PluginParameter
 {
 public:
     PluginParameterComboBox(juce::AudioProcessorValueTreeState &apvts,
-                          const juce::String &paramName,
-                          const juce::String &label,
-                          const juce::StringArray &items,
-                          const int defaultChoice = 0,
-                          const std::function<float(const float)> callback = nullptr)
+                            const juce::String &paramName,
+                            const juce::String &label,
+                            const juce::StringArray &items,
+                            const int defaultChoice = 0,
+                            const std::function<float(const float)> callback = nullptr)
         : PluginParameter(apvts, callback),
           paramName(paramName),
           items(items),

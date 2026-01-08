@@ -2,27 +2,27 @@
 
 #include "PluginProcessor.h"
 
-
 FilterAudioProcessor::FilterAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
 	: AudioProcessor(BusesProperties()
-#if ! JucePlugin_IsMidiEffect
-#if ! JucePlugin_IsSynth
-		.withInput("Input", juce::AudioChannelSet::stereo(), true)
+#if !JucePlugin_IsMidiEffect
+#if !JucePlugin_IsSynth
+						 .withInput("Input", juce::AudioChannelSet::stereo(), true)
 #endif
-		.withOutput("Output", juce::AudioChannelSet::stereo(), true)
+						 .withOutput("Output", juce::AudioChannelSet::stereo(), true)
 #endif
-	)
+						 )
 #endif
+	  ,
+	  mApvts(*this, nullptr),
+	  mFilterChoice(mApvts, "mFilter Type", "", {"LowPass", "HighPass"}, 0),
+	  mFrequency(mApvts, "Frequency", "", 20.0f, 20000.0f, 440.0f)
 {
-	addParameter(filterChoice = new juce::AudioParameterChoice("filter choice", "Filter Type", { "LowPass","HighPass" }, 0));
-	addParameter(frequency = new juce::AudioParameterFloat("frequency", "Frequency", 20.0f, 20000.0f, 440.0f));
 }
 
 FilterAudioProcessor::~FilterAudioProcessor()
 {
 }
-
 
 const juce::String FilterAudioProcessor::getName() const
 {
@@ -63,8 +63,8 @@ double FilterAudioProcessor::getTailLengthSeconds() const
 
 int FilterAudioProcessor::getNumPrograms()
 {
-	return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-				// so this should be at least 1, even if you're not really implementing programs.
+	return 1; // NB: some hosts don't cope very well if you tell them there are 0 programs,
+		// so this should be at least 1, even if you're not really implementing programs.
 }
 
 int FilterAudioProcessor::getCurrentProgram()
@@ -81,26 +81,25 @@ const juce::String FilterAudioProcessor::getProgramName(int index)
 	return {};
 }
 
-void FilterAudioProcessor::changeProgramName(int index, const juce::String& newName)
+void FilterAudioProcessor::changeProgramName(int index, const juce::String &newName)
 {
 }
 
 void FilterAudioProcessor::reset()
 {
-	filter.reset();
+	mFilter.reset();
 }
 
-
-void FilterAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+void FilterAudioProcessor::prepareToPlay(double mSampleRate, int samplesPerBlock)
 {
-	this->sampleRate = sampleRate;
-	if (filterChoice->getIndex() == 0)
-		*filter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, *frequency);
-	else if (filterChoice->getIndex() == 1)
-		*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, *frequency);
+	this->mSampleRate = mSampleRate;
+	if (mFilterChoice.getTargetValue() == 0)
+		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, mFrequency.getTargetValue());
+	else if (mFilterChoice.getTargetValue() == 0)
+		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, mFrequency.getTargetValue());
 
-	juce::dsp::ProcessSpec spec{ sampleRate,static_cast<juce::uint32>(samplesPerBlock),2 };
-	filter.prepare(spec);
+	juce::dsp::ProcessSpec spec{mSampleRate, static_cast<juce::uint32>(samplesPerBlock), 2};
+	mFilter.prepare(spec);
 }
 
 void FilterAudioProcessor::releaseResources()
@@ -110,7 +109,7 @@ void FilterAudioProcessor::releaseResources()
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool FilterAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+bool FilterAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 {
 #if JucePlugin_IsMidiEffect
 	juce::ignoreUnused(layouts);
@@ -120,12 +119,11 @@ bool FilterAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 	// In this template code we only support mono or stereo.
 	// Some plugin hosts, such as certain GarageBand versions, will only
 	// load plugins that support stereo bus layouts.
-	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-		&& layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+	if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
 		return false;
 
-	// This checks if the input layout matches the output layout
-#if ! JucePlugin_IsSynth
+		// This checks if the input layout matches the output layout
+#if !JucePlugin_IsSynth
 	if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
 		return false;
 #endif
@@ -135,47 +133,44 @@ bool FilterAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 }
 #endif
 
-void FilterAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void FilterAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &midiMessages)
 {
-	if (filterChoice->getIndex() == 0)
-		*filter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, *frequency);
-	else if (filterChoice->getIndex() == 1)
-		*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, *frequency);
+	if (mFilterChoice.getTargetValue() == 0)
+		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, mFrequency.getTargetValue());
+	else if (mFilterChoice.getTargetValue() == 1)
+		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, mFrequency.getTargetValue());
 
 	juce::dsp::AudioBlock<float> block(buffer);
 	juce::dsp::ProcessContextReplacing<float> context(block);
-	filter.process(context);
+	mFilter.process(context);
 }
-
 
 bool FilterAudioProcessor::hasEditor() const
 {
 	return true; // (change this to false if you choose to not supply an editor)
 }
 
-juce::AudioProcessorEditor* FilterAudioProcessor::createEditor()
+juce::AudioProcessorEditor *FilterAudioProcessor::createEditor()
 {
 	return new juce::GenericAudioProcessorEditor(*this);
 }
 
-
-void FilterAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
+void FilterAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
 	// You should use this method to store your parameters in the memory block.
 	// You could do that either as raw data, or use the XML or ValueTree classes
 	// as intermediaries to make it easy to save and load complex data.
 }
 
-void FilterAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+void FilterAudioProcessor::setStateInformation(const void *data, int sizeInBytes)
 {
 	// You should use this method to restore your parameters from this memory block,
 	// whose contents will have been created by the getStateInformation() call.
 }
 
-
 // This creates new instances of the plugin..
 #ifdef EXPORT_CREATE_FILTER_FUNCTION
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
 {
 	return new FilterAudioProcessor();
 }

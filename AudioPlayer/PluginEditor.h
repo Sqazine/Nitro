@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "Common/PluginParameterToggle.h"
+#include "Common/Common.h"
 
 class AudioPlayerAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::ChangeListener, public juce::Timer
 {

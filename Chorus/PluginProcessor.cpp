@@ -1,6 +1,5 @@
 
 #include "PluginProcessor.h"
-#include "Common/Utils.h"
 ChorusAudioProcessor::ChorusAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
 	: AudioProcessor(BusesProperties()

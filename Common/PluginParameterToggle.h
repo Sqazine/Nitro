@@ -5,7 +5,7 @@ class PluginParameterToggle : public PluginParameter
 public:
     PluginParameterToggle(juce::AudioProcessorValueTreeState &apvts,
                           const juce::String &paramName,
-                          const juce::String &label="",
+                          const juce::String &label = "",
                           const bool defaultState = false,
                           const std::function<float(float)> callback = nullptr)
         : PluginParameter(apvts, callback),
