@@ -24,3 +24,12 @@ install python3
 
 python3 plugin_helper [option(-c(or --create),-d(or --delete))] [plugin_name],such as:python3 plugin_helper -c Delay
 ```
+
+## References
+[JUCE-Official-Tutorials](https://juce.com/learn/tutorials/)
+
+[Audio-Effects](https://github.com/juandagilc/Audio-Effects)
+
+[Audio-Plugin-Development-Resources](https://github.com/jareddrayton/Audio-Plugin-Development-Resources)
+
+[awesome-juce](https://github.com/sudara/awesome-juce)
