@@ -313,7 +313,7 @@ MainHostWindow::MainHostWindow()
                                 [safeThis](bool granted) mutable
                                 {
                                     auto savedState = getAppProperties().getUserSettings()->getXmlValue("audioDeviceState");
-                                    safeThis->deviceManager.initialise(granted ? 256 : 0, 256, savedState.get(), true);
+                                    safeThis->deviceManager.initialise(granted ? 256 : 0, 2, savedState.get(), true);
                                 });
 
 #if JUCE_IOS || JUCE_ANDROID
@@ -917,7 +917,7 @@ void MainHostWindow::showAudioSettings()
 {
     auto *audioSettingsComp = new AudioDeviceSelectorComponent(deviceManager,
                                                                0, 256,
-                                                               0, 256,
+                                                               0, 2,//audio默认最大输出通道为2
                                                                true, true,
                                                                true, false);
 
