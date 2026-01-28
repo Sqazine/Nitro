@@ -82,7 +82,7 @@ AudioPlayerAudioProcessorEditor::AudioPlayerAudioProcessorEditor(AudioPlayerAudi
 
 AudioPlayerAudioProcessorEditor::~AudioPlayerAudioProcessorEditor()
 {
-	DBG("²å¼ş±à¼­Æ÷¹Ø±ÕÖĞ...");
+	DBG("æ’ä»¶ç¼–è¾‘å™¨å…³é—­ä¸­...");
 	audioProcessor.mTransportSource.removeChangeListener(this);
 	audioProcessor.releaseResources();
 }
