@@ -12,4 +12,5 @@ set(AUDIO_EFFECT_LIBS
     SimpleEQ
     ThreeBandEqualizer
 	Chorus
+	JCM800
 )
