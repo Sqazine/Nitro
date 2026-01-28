@@ -399,7 +399,8 @@ def append_major_cmake_file():
     global isSuccessfully
     if isSuccessfully == True:
         file = open("CMakeLists.txt", "a")
-        file.write("\nadd_subdirectory("+plugin_name+")")
+        file.write("\n#"+plugin_name)
+        file.write("\nconfigure_plugin("+plugin_name+")\n")
         file.close()
 
 
