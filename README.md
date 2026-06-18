@@ -1,5 +1,5 @@
-# LabAudioEffect
-A series of audio effect plugins created personally using JUCE,just for fun
+# Nitro
+A series of audio effect plugins collection
 
 ## Build
 ```sh
