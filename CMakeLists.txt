@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(LabAudioEffect VERSION 0.0.1)
+project(Nitro VERSION 0.0.1)
 
 set_directory_properties(PROPERTIES
     JUCE_COMPANY_NAME       "Sqazine"
@@ -51,3 +51,5 @@ configure_plugin(SimpleDistortion)
 configure_plugin(SimpleEQ)
 configure_plugin(Chorus)
 configure_plugin(JCM800)
+#Tuner
+configure_plugin(Tuner)

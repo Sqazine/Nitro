@@ -13,4 +13,5 @@ set(AUDIO_EFFECT_LIBS
     ThreeBandEqualizer
 	Chorus
 	JCM800
+	Tuner
 )

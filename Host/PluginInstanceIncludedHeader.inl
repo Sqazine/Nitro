@@ -12,3 +12,4 @@
 #include "ThreeBandEqualizer/PluginProcessor.h"
 #include "Chorus/PluginProcessor.h"
 #include "JCM800/PluginProcessor.h"
+#include "Tuner/PluginProcessor.h"
