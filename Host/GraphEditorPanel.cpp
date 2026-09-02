@@ -898,7 +898,25 @@ void GraphEditorPanel::showPopupMenu (Point<int> mousePos)
                                                                     if (const auto chosen = mainWin->getChosenType (r))
                                                                         createNewPlugin (*chosen, mousePos);
                                                             }));
+        return;
     }
+
+    // When the Host is built as a plugin there is no MainHostWindow around to
+    // own the plugin list, so build the menu from the internal types instead.
+    PluginInstanceFormat internalFormat;
+    const std::vector<PluginDescription> internalTypes = internalFormat.getAllTypes();
+
+    for (int i = 0; i < (int) internalTypes.size(); ++i)
+        menu->addItem (i + 1, internalTypes[(size_t) i].name);
+
+    menu->showMenuAsync ({},
+                         ModalCallbackFunction::create ([this, mousePos, internalTypes] (int r)
+                                                        {
+                                                            const auto index = r - 1;
+
+                                                            if (isPositiveAndBelow (index, (int) internalTypes.size()))
+                                                                createNewPlugin (PluginDescriptionAndPreference { internalTypes[(size_t) index] }, mousePos);
+                                                        }));
 }
 
 void GraphEditorPanel::beginConnectorDrag (AudioProcessorGraph::NodeAndChannel source,

@@ -18,13 +18,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Bin/Debug)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Bin/Release)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/Bin/RelWithDebInfo)
 
-# Host
-option(BUILD_Host "Build Host executable" ON)
+# Host: exactly like the other units it comes out of a single juce_add_plugin
+# call, but it asks for two formats: VST3 (Host.vst3) and Standalone (Host.exe,
+# which runs the Host's own JUCEApplication instead of JUCE's default shell).
+option(BUILD_Host "Build Host (standalone application and VST3 plugin)" ON)
 if(BUILD_Host)
     add_subdirectory(Host)
     
     if(MSVC)
-        set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Host)
+        set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Host_Standalone)
     endif(MSVC)
 endif(BUILD_Host)
 

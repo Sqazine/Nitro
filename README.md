@@ -15,6 +15,19 @@ cmake --build .
 #then executable and vst3 plugin all listed in (build/Bin/) folder 
 ```
 
+## Host
+
+`Host` comes out of a single `juce_add_plugin` call with two formats:
+
+* `Host_Standalone` -> `Host.exe`, which embeds every plugin of the collection
+* `Host_VST3` -> `Host.vst3`, which hosts the same plugin graph, so the collection can be loaded from inside another host
+
+The standalone target keeps the Host's own `JUCEApplication` (`main.cpp`) by defining
+`JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1`, instead of using JUCE's default standalone shell.
+`main.cpp` only holds the application class, every other source file of the `Host` folder is shared
+by both flavours. Everything they both depend on (settings, command manager, auto-scale helpers)
+lives in `Host/HostAppContext.*`.
+
 Build only one or several plugins can set options on CMake GUI,like:
 
 ![alt text](image.png)

@@ -27,6 +27,7 @@
 
 #include "PluginGraph.h"
 #include "GraphEditorPanel.h"
+#include "HostAppContext.h"
 
 
 //==============================================================================
@@ -47,30 +48,6 @@ namespace CommandIDs
 }
 
 //==============================================================================
-ApplicationCommandManager& getCommandManager();
-ApplicationProperties& getAppProperties();
-bool isOnTouchDevice();
-
-//==============================================================================
-enum class AutoScale
-{
-    scaled,
-    unscaled,
-    useDefault
-};
-
-constexpr bool autoScaleOptionAvailable =
-    #if JUCE_WINDOWS && JUCE_WIN_PER_MONITOR_DPI_AWARE
-     true;
-    #else
-     false;
-    #endif
-
-AutoScale getAutoScaleValueForPlugin (const String&);
-void setAutoScaleValueForPlugin (const String&, AutoScale);
-bool shouldAutoScalePlugin (const PluginDescription&);
-void addPluginAutoScaleOptionsSubMenu (AudioPluginInstance*, PopupMenu&);
-
 constexpr const char* processUID = "juceaudiopluginhost";
 
 //==============================================================================
