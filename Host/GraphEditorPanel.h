@@ -128,6 +128,7 @@ public:
     //==============================================================================
     std::unique_ptr<GraphEditorPanel> graphPanel;
     std::unique_ptr<MidiKeyboardComponent> keyboardComp;
+    std::unique_ptr<TextButton> tunerButton;
 
     //==============================================================================
     void showSidePanel (bool isSettingsPanel);

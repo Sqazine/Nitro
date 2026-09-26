@@ -236,7 +236,7 @@ public:
         return true;
     }
 
-    const String getApplicationName() override       { return "Juce Plug-In Host"; }
+    const String getApplicationName() override       { return "Nitro"; }
     const String getApplicationVersion() override    { return ProjectInfo::versionString; }
     bool moreThanOneInstanceAllowed() override       { return true; }
 

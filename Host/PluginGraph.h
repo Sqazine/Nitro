@@ -71,6 +71,9 @@ public:
 
     AudioProcessorGraph::Node::Ptr getNodeForName (const String& name) const;
 
+    bool isTunerInGraph() const;
+    void toggleTuner();
+
     void setNodePosition (NodeID, Point<double>);
     Point<double> getNodePosition (NodeID) const;
 

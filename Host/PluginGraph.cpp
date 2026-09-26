@@ -536,3 +536,108 @@ File PluginGraph::getDefaultGraphDocumentOnMobile()
     auto persistantStorageLocation = File::getSpecialLocation (File::userApplicationDataDirectory);
     return persistantStorageLocation.getChildFile ("state.filtergraph");
 }
+
+//==============================================================================
+bool PluginGraph::isTunerInGraph() const
+{
+    return getNodeForName ("Tuner") != nullptr;
+}
+
+void PluginGraph::toggleTuner()
+{
+    auto existingTuner = getNodeForName ("Tuner");
+
+    if (existingTuner != nullptr)
+    {
+        if (auto* w = getOrCreateWindowFor (existingTuner.get(), PluginWindow::Type::normal))
+            w->toFront (true);
+        return;
+    }
+
+    auto audioInput  = getNodeForName ("Audio Input");
+    auto audioOutput = getNodeForName ("Audio Output");
+
+    if (audioInput == nullptr || audioOutput == nullptr)
+        return;
+
+    std::vector<AudioProcessorGraph::Connection> connectionsFromInput;
+
+    for (const auto& conn : graph.getConnections())
+    {
+        if (conn.source.nodeID == audioInput->nodeID && ! conn.source.isMIDI())
+            connectionsFromInput.push_back (conn);
+    }
+
+    for (const auto& conn : connectionsFromInput)
+        graph.removeConnection (conn);
+
+    PluginInstanceFormat pluginFormat;
+    PluginDescription tunerDesc;
+
+    for (const auto& t : pluginFormat.getAllTypes())
+    {
+        if (t.name == "Tuner")
+        {
+            tunerDesc = t;
+            break;
+        }
+    }
+
+    if (tunerDesc.name.isEmpty())
+        return;
+
+    String error;
+    auto instance = formatManager.createPluginInstance (tunerDesc,
+                                                        graph.getSampleRate(),
+                                                        graph.getBlockSize(),
+                                                        error);
+    if (instance == nullptr)
+    {
+        auto options = MessageBoxOptions::makeOptionsOk (MessageBoxIconType::WarningIcon,
+                                                         TRANS ("Couldn't create Tuner"),
+                                                         error);
+        messageBox = AlertWindow::showScopedAsync (options, nullptr);
+        return;
+    }
+
+    instance->enableAllBuses();
+
+    if (auto tunerNode = graph.addNode (std::move (instance)))
+    {
+        tunerNode->properties.set ("hidden", true);
+
+        for (const auto& conn : connectionsFromInput)
+        {
+            graph.addConnection ({ { audioInput->nodeID, conn.source.channelIndex },
+                                   { tunerNode->nodeID, conn.source.channelIndex } });
+        }
+
+        if (connectionsFromInput.empty())
+        {
+            auto audioOutput = getNodeForName ("Audio Output");
+            if (audioOutput != nullptr)
+            {
+                for (int ch = 0; ch < 2; ++ch)
+                    graph.addConnection ({ { audioInput->nodeID, ch },
+                                           { tunerNode->nodeID, ch } });
+
+                for (int ch = 0; ch < 2; ++ch)
+                    graph.addConnection ({ { tunerNode->nodeID, ch },
+                                           { audioOutput->nodeID, ch } });
+            }
+        }
+        else
+        {
+            for (const auto& conn : connectionsFromInput)
+            {
+                graph.addConnection ({ { tunerNode->nodeID, conn.source.channelIndex },
+                                       { conn.destination.nodeID, conn.destination.channelIndex } });
+            }
+        }
+
+        changed();
+
+        if (auto* w = getOrCreateWindowFor (tunerNode.get(), PluginWindow::Type::normal))
+            w->toFront (true);
+    }
+}

@@ -847,12 +847,27 @@ void GraphEditorPanel::changeListenerCallback (ChangeBroadcaster*)
 void GraphEditorPanel::updateComponents()
 {
     for (int i = nodes.size(); --i >= 0;)
-        if (graph.graph.getNodeForId (nodes.getUnchecked (i)->pluginID) == nullptr)
+    {
+        auto* node = graph.graph.getNodeForId (nodes.getUnchecked (i)->pluginID);
+        if (node == nullptr || node->properties ["hidden"])
             nodes.remove (i);
+    }
 
     for (int i = connectors.size(); --i >= 0;)
+    {
         if (! graph.graph.isConnected (connectors.getUnchecked (i)->connection))
+        {
             connectors.remove (i);
+            continue;
+        }
+
+        const auto& conn = connectors.getUnchecked (i)->connection;
+        auto* srcNode = graph.graph.getNodeForId (conn.source.nodeID);
+        auto* dstNode = graph.graph.getNodeForId (conn.destination.nodeID);
+        if ((srcNode != nullptr && srcNode->properties ["hidden"])
+             || (dstNode != nullptr && dstNode->properties ["hidden"]))
+            connectors.remove (i);
+    }
 
     for (auto* fc : nodes)
         fc->update();
@@ -862,6 +877,9 @@ void GraphEditorPanel::updateComponents()
 
     for (auto* f : graph.graph.getNodes())
     {
+        if (f->properties ["hidden"])
+            continue;
+
         if (getComponentForPlugin (f->nodeID) == nullptr)
         {
             auto* comp = nodes.add (new PluginComponent (*this, f->nodeID));
@@ -872,6 +890,12 @@ void GraphEditorPanel::updateComponents()
 
     for (auto& c : graph.graph.getConnections())
     {
+        auto* srcNode = graph.graph.getNodeForId (c.source.nodeID);
+        auto* dstNode = graph.graph.getNodeForId (c.destination.nodeID);
+        if ((srcNode != nullptr && srcNode->properties ["hidden"])
+             || (dstNode != nullptr && dstNode->properties ["hidden"]))
+            continue;
+
         if (getComponentForConnection (c) == nullptr)
         {
             auto* comp = connectors.add (new ConnectorComponent (*this));
@@ -1251,6 +1275,17 @@ void GraphDocumentComponent::init()
     statusBar.reset (new TooltipBar());
     addAndMakeVisible (statusBar.get());
 
+    tunerButton.reset (new TextButton ("Tuner"));
+    tunerButton->setButtonText ("Tuner");
+    tunerButton->setColour (TextButton::buttonColourId, Colours::darkorange.withAlpha (0.85f));
+    tunerButton->setColour (TextButton::textColourOffId, Colours::white);
+    tunerButton->onClick = [this]
+    {
+        if (graph != nullptr)
+            graph->toggleTuner();
+    };
+    addAndMakeVisible (tunerButton.get());
+
     graphPanel->updateComponents();
 
     if (isOnTouchDevice())
@@ -1307,6 +1342,13 @@ void GraphDocumentComponent::resized()
     statusBar->setBounds (r.removeFromBottom (statusHeight));
     graphPanel->setBounds (r);
 
+    const int tunerBtnW = 70;
+    const int tunerBtnH = 30;
+    const int tunerBtnMargin = 8;
+    tunerButton->setBounds (r.getX() + tunerBtnMargin,
+                            r.getBottom() - tunerBtnH - tunerBtnMargin,
+                            tunerBtnW, tunerBtnH);
+
     checkAvailableWidth();
 }
 
@@ -1328,6 +1370,7 @@ void GraphDocumentComponent::releaseGraph()
 
     keyboardComp = nullptr;
     statusBar = nullptr;
+    tunerButton = nullptr;
 
     graphPlayer.setProcessor (nullptr);
     graph = nullptr;
@@ -1401,6 +1444,19 @@ bool GraphDocumentComponent::closeAnyOpenPluginWindows()
 void GraphDocumentComponent::changeListenerCallback (ChangeBroadcaster*)
 {
     updateMidiOutput();
+
+    if (tunerButton != nullptr && graph != nullptr)
+    {
+        tunerButton->setButtonText ("Tuner");
+        if (graph->isTunerInGraph())
+        {
+            tunerButton->setColour (TextButton::buttonColourId, Colours::limegreen.withAlpha (0.85f));
+        }
+        else
+        {
+            tunerButton->setColour (TextButton::buttonColourId, Colours::darkorange.withAlpha (0.85f));
+        }
+    }
 }
 
 void GraphDocumentComponent::updateMidiOutput()
