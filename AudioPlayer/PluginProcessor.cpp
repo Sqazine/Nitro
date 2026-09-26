@@ -41,6 +41,7 @@ AudioPlayerAudioProcessor::AudioPlayerAudioProcessor()
 AudioPlayerAudioProcessor::~AudioPlayerAudioProcessor()
 {
 	releaseResources();
+	mTransportSource.setSource(nullptr);
 }
 
 
@@ -115,7 +116,6 @@ void AudioPlayerAudioProcessor::releaseResources()
 {
 	mTransportSource.stop();
 	mTransportSource.releaseResources();
-	mTransportSource.setSource(nullptr);
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -199,9 +199,23 @@ void AudioPlayerAudioProcessor::LoadFile(juce::File& file)
 	if (reader)
 	{
 		auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
+		newSource->setLooping(mLooping.load());
 		mTransportSource.stop();
 		mTransportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
 		mReaderSource.reset(newSource.release());
+	}
+}
+
+void AudioPlayerAudioProcessor::SetLooping(bool shouldLoop)
+{
+	mLooping.store(shouldLoop);
+	if (mReaderSource != nullptr)
+	{
+		auto wasPlaying = mTransportSource.isPlaying();
+		mTransportSource.stop();
+		mReaderSource->setLooping(shouldLoop);
+		if (wasPlaying)
+			mTransportSource.start();
 	}
 }
 

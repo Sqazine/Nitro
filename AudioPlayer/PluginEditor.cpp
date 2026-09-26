@@ -66,8 +66,11 @@ AudioPlayerAudioProcessorEditor::AudioPlayerAudioProcessorEditor(AudioPlayerAudi
 
 		addAndMakeVisible(&loopButton);
 		loopButton.setButtonText("loop");
-		loopButton.setEnabled(true);
-		loopButton.getToggleStateValue().setValue(true);
+		loopButton.setToggleState(true, juce::dontSendNotification);
+		loopButton.onClick = [this]
+			{
+				audioProcessor.SetLooping(loopButton.getToggleState());
+			};
 	}
 
 	{
@@ -84,7 +87,7 @@ AudioPlayerAudioProcessorEditor::~AudioPlayerAudioProcessorEditor()
 {
 	DBG("插件编辑器关闭中...");
 	audioProcessor.mTransportSource.removeChangeListener(this);
-	audioProcessor.releaseResources();
+	audioProcessor.mTransportSource.stop();
 }
 
 void AudioPlayerAudioProcessorEditor::paint(juce::Graphics &g)
@@ -121,22 +124,6 @@ void AudioPlayerAudioProcessorEditor::paint(juce::Graphics &g)
 		g.drawLine(drawPosition, (float)thumbnailBounds.getY(), drawPosition, (float)thumbnailBounds.getBottom(), 2.0f);
 	}
 
-	if( audioProcessor.mTransportSource.getCurrentPosition() >= audioProcessor.mTransportSource.getLengthInSeconds())
-	{
-		audioProcessor.mTransportSource.setPosition(0);
-		if (loopButton.getToggleStateValue().getValue())
-		{
-			playOrStopButton.setButtonText("stop");
-			playOrStopButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-			audioProcessor.mTransportSource.start();
-		}
-		else
-		{
-			playOrStopButton.setButtonText("play");
-			playOrStopButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
-			audioProcessor.mTransportSource.stop();
-		}
-	}
 }
 
 void AudioPlayerAudioProcessorEditor::resized()

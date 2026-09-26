@@ -95,7 +95,7 @@ void FilterAudioProcessor::prepareToPlay(double mSampleRate, int samplesPerBlock
 	this->mSampleRate = mSampleRate;
 	if (mFilterChoice.getTargetValue() == 0)
 		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(mSampleRate, mFrequency.getTargetValue());
-	else if (mFilterChoice.getTargetValue() == 0)
+	else if (mFilterChoice.getTargetValue() == 1)
 		*mFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(mSampleRate, mFrequency.getTargetValue());
 
 	juce::dsp::ProcessSpec spec{mSampleRate, static_cast<juce::uint32>(samplesPerBlock), 2};

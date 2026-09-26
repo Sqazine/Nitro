@@ -39,6 +39,7 @@ public:
 	void setStateInformation(const void* data, int sizeInBytes) override;
 
 	void LoadFile(juce::File& file);
+	void SetLooping(bool shouldLoop);
 
 	juce::AudioTransportSource mTransportSource;
 	juce::AudioFormatManager mFormatManager;
@@ -47,6 +48,7 @@ public:
 
 private:
 	std::unique_ptr<juce::AudioFormatReaderSource> mReaderSource;
+	std::atomic<bool> mLooping{ true };
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPlayerAudioProcessor)
 };
