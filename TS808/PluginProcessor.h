@@ -2,15 +2,17 @@
 
 #include <JuceHeader.h>
 #include "Common/Common.h"
-class SimpleEQAudioProcessor : public juce::AudioProcessor
+#include "TS808/TS808Model.h"
+
+class TS808AudioProcessor : public juce::AudioProcessor
 #if JucePlugin_Enable_ARA
 	,
-							   public juce::AudioProcessorARAExtension
+								 public juce::AudioProcessorARAExtension
 #endif
 {
 public:
-	SimpleEQAudioProcessor();
-	~SimpleEQAudioProcessor() override;
+	TS808AudioProcessor();
+	~TS808AudioProcessor() override;
 
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
@@ -40,14 +42,16 @@ public:
 	void getStateInformation(juce::MemoryBlock &destData) override;
 	void setStateInformation(const void *data, int sizeInBytes) override;
 
-private:
 	juce::AudioProcessorValueTreeState mApvts;
-	PluginParameterSlider mLowCutFreq;
-	PluginParameterSlider mLowCutQuality;
-	PluginParameterSlider mHighCutFreq;
-	PluginParameterSlider mHighCutQuality;
+	PluginParameterSlider mDrive;
+	PluginParameterSlider mTone;
+	PluginParameterSlider mLevel;
 
-	juce::dsp::ProcessorChain<DspIIRFilterFloat, DspIIRFilterFloat> mLeftChain, mRightChain;
+private:
+	std::unique_ptr<juce::dsp::Oversampling<float>> mOversampling;
+	TS808Model mModel[2];
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SimpleEQAudioProcessor)
+	float mSampleRate = 44100.0f;
+
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TS808AudioProcessor)
 };

@@ -8,10 +8,9 @@ set(AUDIO_EFFECT_LIBS
     Oscillator
     PingPongDelay
     Reverb
-    SimpleDistortion
-    SimpleEQ
     ThreeBandEqualizer
 	Chorus
 	JCM800
 	Tuner
+	TS808
 )

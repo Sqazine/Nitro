@@ -614,7 +614,6 @@ void PluginGraph::toggleTuner()
 
         if (connectionsFromInput.empty())
         {
-            auto audioOutput = getNodeForName ("Audio Output");
             if (audioOutput != nullptr)
             {
                 for (int ch = 0; ch < 2; ++ch)
