@@ -21,6 +21,8 @@ juce_generate_juce_header(${PLUGIN_NAME})
 
 file(GLOB_RECURSE SRC "*.h" "*.cpp" "*.inl")
 file(GLOB_RECURSE COMMON_SRC "${CMAKE_SOURCE_DIR}/Common/*.h" "${CMAKE_SOURCE_DIR}/Common/*.cpp" "${CMAKE_SOURCE_DIR}/Common/*.inl")
+# The dsp/ self-test has its own main(); it must not be linked into the plugin.
+list(FILTER SRC EXCLUDE REGEX "self_test.cpp$")
 source_group("${PLUGIN_NAME}" FILES ${SRC})
 source_group("Common" FILES ${COMMON_SRC})
 

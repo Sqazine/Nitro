@@ -1,4 +1,3 @@
-
 #include "PluginProcessor.h"
 
 JCM800AudioProcessor::JCM800AudioProcessor()
@@ -60,7 +59,7 @@ bool JCM800AudioProcessor::isMidiEffect() const
 
 double JCM800AudioProcessor::getTailLengthSeconds() const
 {
-    return 0.0;
+    return kTailSec;
 }
 
 int JCM800AudioProcessor::getNumPrograms()
@@ -75,51 +74,82 @@ int JCM800AudioProcessor::getCurrentProgram()
 
 void JCM800AudioProcessor::setCurrentProgram (int index)
 {
+    juce::ignoreUnused (index);
 }
 
 const juce::String JCM800AudioProcessor::getProgramName (int index)
 {
+    juce::ignoreUnused (index);
     return {};
 }
 
 void JCM800AudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
+    juce::ignoreUnused (index, newName);
 }
 
 void JCM800AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    mProcessChain.reset();
+    // 4x oversampling for the nonlinear tube/transformer stages.
+    // NOTE: the Oversampling "factor" argument is 2^factor, so exponent 2 -> 4x.
+    mOversampling = std::make_unique<juce::dsp::Oversampling<float>>(
+        (size_t) kNumModels,
+        (size_t) kOsExponent,
+        juce::dsp::Oversampling<float>::FilterType::filterHalfBandPolyphaseIIR);
 
-    juce::dsp::ProcessSpec spec;
-    spec.numChannels = 2;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.sampleRate = sampleRate;
+    // This JUCE build's Oversampling has no prepare(ProcessSpec); the half-band
+    // filters are sample-rate independent, so just size the internal buffers.
+    mOversampling->initProcessing ((size_t) samplesPerBlock);
 
-    mProcessChain.prepare(spec);
+    // One white-box amp model per channel (kept independent for true stereo).
+    for (int i = 0; i < kNumModels; ++i)
+        mModel[i].prepare (sampleRate, kOversample);
 
-    auto &waveShaper = mProcessChain.get<waveShaperIndex>();
-    
-    waveShaper.functionToUse = [](float x) -> float {
-        // JCM800风格的失真曲线 - 软削波结合指数特性
-        float drive = 15.0f;
-        x *= drive;
-        
-        if (x > 0.0f) {
-            return 1.0f - std::exp(-x);
-        } else {
-            return -1.0f + std::exp(x);
-        }
+    // Push initial parameter values into both models.
+    auto g = mGain.getTargetValue(), b = mBass.getTargetValue(),
+         m = mMiddle.getTargetValue(), h = mHigh.getTargetValue(),
+         p = mPresence.getTargetValue(), v = mVolume.getTargetValue();
+    for (int i = 0; i < kNumModels; ++i)
+        mModel[i].setParams (g, b, m, h, p, v);
+
+    // Load a measured Greenback IR if one is present on disk (else synth IR).
+    loadCabinetIR();
+}
+
+void JCM800AudioProcessor::loadCabinetIR()
+{
+    // Only attempt to swap in a measured IR if we are not already using one
+    // (so a host that calls prepareToPlay repeatedly does not re-read/re-normalise
+    // the file each time). If no file exists we keep retrying cheaply.
+    if (mModel[0].mCab.mLoadedFromFile) return;
+
+    juce::StringArray candidates;
+    auto addDir = [&](const juce::File& dir)
+    {
+        candidates.add (dir.getChildFile ("Greenback.wav").getFullPathName());
+        candidates.add (dir.getChildFile ("Greenback_IR.wav").getFullPathName());
+        candidates.add (dir.getChildFile ("greenback.wav").getFullPathName());
     };
+    addDir (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("JCM800"));
+    addDir (juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("JCM800"));
+    addDir (juce::File ("D:/sc/Nitro/JCM800"));   // dev convenience
 
-    mPreviousGain = mGain.getTargetValue();
-    mPreviousBass = mBass.getTargetValue();
-    mPreviousMiddle = mMiddle.getTargetValue();
-    mPreviousHigh = mHigh.getTargetValue();
-    mPreviousPresence = mPresence.getTargetValue();
+    for (int i = 0; i < candidates.size(); ++i)
+    {
+        juce::File f (candidates[i]);
+        if (!f.existsAsFile()) continue;
+        juce::String path = f.getFullPathName();
+        bool ok = true;
+        for (int c = 0; c < kNumModels; ++c)
+            if (!mModel[c].mCab.loadWav (path.toRawUTF8())) ok = false;
+        if (ok) { DBG ("JCM800: loaded measured cabinet IR from " + path); return; }
+    }
+    DBG ("JCM800: no measured Greenback IR found -> using synthesised IR");
 }
 
 void JCM800AudioProcessor::releaseResources()
 {
+    mOversampling.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -152,70 +182,39 @@ void JCM800AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    auto currentGain = mGain.getTargetValue();
-    auto currentBass = mBass.getTargetValue();
-    auto currentMiddle = mMiddle.getTargetValue();
-    auto currentHigh = mHigh.getTargetValue();
-    auto currentVolume = mVolume.getTargetValue();
-    auto currentPresence = mPresence.getTargetValue();
+    // Shared front-panel parameters are applied to every channel model.
+    auto g = mGain.getTargetValue(), b = mBass.getTargetValue(),
+         m = mMiddle.getTargetValue(), h = mHigh.getTargetValue(),
+         p = mPresence.getTargetValue(), v = mVolume.getTargetValue();
+    for (int i = 0; i < kNumModels; ++i)
+        mModel[i].setParams (g, b, m, h, p, v);
 
-    juce::dsp::AudioBlock<float> block(buffer);
-    if (block.getNumChannels() > 2)
-        block = block.getSubsetChannelBlock(0, 2);
+    const int numSamples = buffer.getNumSamples();
+    const int numCh = (int) std::min ((size_t) kNumModels, (size_t) buffer.getNumChannels());
 
-    auto &preGainStage = mProcessChain.get<preGainStageIndex>();
-    auto &bassFilter = mProcessChain.get<bassFilterIndex>();
-    auto &middleFilter = mProcessChain.get<middleFilterIndex>();
-    auto &highFilter = mProcessChain.get<highFilterIndex>();
-    auto &presenceFilter = mProcessChain.get<presenceFilterIndex>();
-    auto &volumeStage = mProcessChain.get<volumeStageIndex>();
+    // ---- oversample the input, run the preamp/power-amp, downsample ----
+    juce::dsp::AudioBlock<float> block (buffer);
+    auto osBlock = mOversampling->processSamplesUp (block);
+    const int osNumSamples = (int) osBlock.getNumSamples();
 
-    preGainStage.setGainLinear(currentGain * 10.0f);
-
-    // 低音处理 - 带通滤波器，中心频率约80Hz
-    if (currentBass != mPreviousBass) {
-        float bassFreq = 80.0f;
-        float q = 0.707f;
-        float gain = 1.0f + (currentBass - 0.5f) * 10.0f;
-        juce::dsp::IIR::Coefficients<float>::Ptr coeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(), bassFreq, q, gain);
-        bassFilter.coefficients = coeffs;
-        mPreviousBass = currentBass;
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        float* osData = osBlock.getChannelPointer ((size_t) ch);
+        for (int i = 0; i < osNumSamples; ++i)
+            osData[i] = mModel[ch].processAmp (osData[i]);
     }
 
-    // 中音处理 - 带通滤波器，中心频率约800Hz
-    if (currentMiddle != mPreviousMiddle) {
-        float middleFreq = 800.0f;
-        float q = 0.707f;
-        float gain = 1.0f + (currentMiddle - 0.5f) * 10.0f;
-        juce::dsp::IIR::Coefficients<float>::Ptr coeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(), middleFreq, q, gain);
-        middleFilter.coefficients = coeffs;
-        mPreviousMiddle = currentMiddle;
+    // processSamplesDown writes the base-rate (downsampled) amp output back
+    // into `block` (== buffer).
+    mOversampling->processSamplesDown (block);
+
+    // ---- cabinet convolution at the base rate (per channel) ----
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        float* data = buffer.getWritePointer (ch);
+        for (int i = 0; i < numSamples; ++i)
+            data[i] = mModel[ch].processCab (data[i]);
     }
-
-    // 高音处理 - 带通滤波器，中心频率约3kHz
-    if (currentHigh != mPreviousHigh) {
-        float highFreq = 3000.0f;
-        float q = 0.707f;
-        float gain = 1.0f + (currentHigh - 0.5f) * 10.0f;
-        juce::dsp::IIR::Coefficients<float>::Ptr coeffs = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(), highFreq, q, gain);
-        highFilter.coefficients = coeffs;
-        mPreviousHigh = currentHigh;
-    }
-
-    // 临场感处理
-    if (currentPresence != mPreviousPresence) {
-        float presenceFreq = 5000.0f + (currentPresence * 3000.0f);
-        float q = 0.707f;
-        float gain = 1.0f + (currentPresence - 0.5f) * 8.0f;
-        juce::dsp::IIR::Coefficients<float>::Ptr coeffs = juce::dsp::IIR::Coefficients<float>::makeHighShelf(getSampleRate(), presenceFreq, q, gain);
-        presenceFilter.coefficients = coeffs;
-        mPreviousPresence = currentPresence;
-    }
-
-    volumeStage.setGainLinear(currentVolume);
-
-    juce::dsp::ProcessContextReplacing<float> context(block);
-    mProcessChain.process(context);
 }
 
 bool JCM800AudioProcessor::hasEditor() const
@@ -225,22 +224,21 @@ bool JCM800AudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* JCM800AudioProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new juce::GenericAudioProcessorEditor (*this);
 }
 
 void JCM800AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = mApvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    copyXmlToBinary (*xml, destData);
 }
 
 void JCM800AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
-    if (xml.get() != nullptr && xml->hasTagName(mApvts.state.getType())) {
-        mApvts.replaceState(juce::ValueTree::fromXml(*xml));
-    }
+    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    if (xml.get() != nullptr && xml->hasTagName (mApvts.state.getType()))
+        mApvts.replaceState (juce::ValueTree::fromXml (*xml));
 }
 
 // This creates new instances of the plugin..
