@@ -132,23 +132,21 @@ struct GraphEditorPanel::PinComponent final : public Component,
         auto w = (float) getWidth();
         auto h = (float) getHeight();
 
-        auto baseColour = pin.isMIDI() ? Colours::red
-                                       : (isInput ? Colours::yellow
-                                                  : Colours::green);
+        auto baseColour = pin.isMIDI() ? Colours::red : Colours::green;
 
         Path p;
 
         if (isInput)
         {
             Path outer;
-            outer.addEllipse (w * 0.2f, h * 0.2f, w * 0.6f, h * 0.6f);
+            outer.addEllipse (w * 0.3f, h * 0.3f, w * 0.4f, h * 0.4f);
             PathStrokeType stroke (2.5f);
             stroke.createStrokedPath (p, outer);
         }
         else
         {
-            p.addEllipse (w * 0.1f, h * 0.28f, w * 0.5f, h * 0.44f);
-            p.addRectangle (w * 0.6f, h * 0.4f, w * 0.5f, h * 0.2f);
+            p.addEllipse (w * 0.25f, h * 0.25f, w * 0.5f, h * 0.5f);
+            p.addRectangle (0.0f, h * 0.4f, w * 0.5f, h * 0.2f);
         }
 
         g.setColour (baseColour.withRotatedHue ((float) busIdx / 5.0f));
@@ -291,7 +289,7 @@ struct GraphEditorPanel::PluginComponent final : public Component,
 
     void paint (Graphics& g) override
     {
-        auto boxArea = getLocalBounds().reduced (4, pinSize);
+        auto boxArea = getLocalBounds().reduced (pinSize, pinSize);
         bool isBypassed = false;
 
         if (auto* f = graph.graph.getNodeForId (pluginID))
@@ -321,7 +319,8 @@ struct GraphEditorPanel::PluginComponent final : public Component,
                     const bool isInput = pin->isInput;
                     auto channelIndex = pin->pin.channelIndex;
                     int busIdx = 0;
-                    processor->getOffsetInBusBufferForAbsoluteChannelIndex (isInput, channelIndex, busIdx);
+                    if (! pin->pin.isMIDI())
+                        processor->getOffsetInBusBufferForAbsoluteChannelIndex (isInput, channelIndex, busIdx);
 
                     const int total = isInput ? numIns : numOuts;
                     const int index = pin->pin.isMIDI() ? (total - 1) : channelIndex;
@@ -367,9 +366,9 @@ struct GraphEditorPanel::PluginComponent final : public Component,
         h = jmax (h, (jmax (numIns, numOuts) + 1) * 20);
 
         const int textWidth = font.getStringWidth (processor.getName());
-        w = jmax (w, 16 + jmin (textWidth, 300));
+        w = jmax (w, 16 + pinSize * 2 + jmin (textWidth, 300));
         if (textWidth > 300)
-            w = 160;
+            w = 160 + pinSize * 2;
 
         setSize (w, h);
         setName (processor.getName() + formatSuffix);

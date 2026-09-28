@@ -33,5 +33,5 @@ public:
 
     const juce::String &paramName;
     const juce::StringArray items;
-    const int defaultChoice;
+    const float defaultChoice;
 };
