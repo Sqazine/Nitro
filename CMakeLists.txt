@@ -53,3 +53,6 @@ configure_plugin(Chorus)
 configure_plugin(JCM800)
 configure_plugin(Tuner)
 configure_plugin(TS808)
+
+#DS2
+configure_plugin(DS2)

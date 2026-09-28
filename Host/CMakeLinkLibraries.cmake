@@ -13,4 +13,5 @@ set(AUDIO_EFFECT_LIBS
 	JCM800
 	Tuner
 	TS808
+	DS2
 )

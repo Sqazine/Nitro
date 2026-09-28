@@ -1,6 +1,6 @@
 #include "PluginProcessor.h"
 
-DistortionAudioProcessor::DistortionAudioProcessor()
+DS2AudioProcessor::DS2AudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor(BusesProperties()
 #if !JucePlugin_IsMidiEffect
@@ -13,23 +13,23 @@ DistortionAudioProcessor::DistortionAudioProcessor()
 #endif
       ,
       mApvts(*this, nullptr),
-      mDistortion(mApvts, "Distortion", "dB", 0.0f, 60.0f, 0.0f),
-      mLevel(mApvts, "Level", "dB", -40.0f, 40.0f, 0.0f),
-      mHighPassFrequency(mApvts, "High Pass Frequency", "Hz", 20.0f, 20000.0f, 20.0f),
-      mLowPassFrequency(mApvts, "Low Pass Frequency", "Hz", 20.0f, 20000.0f, 20000.0f)
+      mDrive(mApvts, "Dist", "%", 0.0f, 100.0f, 0.0f),
+      mTone(mApvts, "Tone", "%", 0.0f, 100.0f, 50.0f),
+      mLevel(mApvts, "Level", "%", 0.0f, 100.0f, 50.0f),
+      mMode(mApvts, "Mode", "", juce::StringArray{ "Turbo I", "Turbo II"}, 0)
 {
 }
 
-DistortionAudioProcessor::~DistortionAudioProcessor()
+DS2AudioProcessor::~DS2AudioProcessor()
 {
 }
 
-const juce::String DistortionAudioProcessor::getName() const
+const juce::String DS2AudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
 
-bool DistortionAudioProcessor::acceptsMidi() const
+bool DS2AudioProcessor::acceptsMidi() const
 {
 #if JucePlugin_WantsMidiInput
     return true;
@@ -38,7 +38,7 @@ bool DistortionAudioProcessor::acceptsMidi() const
 #endif
 }
 
-bool DistortionAudioProcessor::producesMidi() const
+bool DS2AudioProcessor::producesMidi() const
 {
 #if JucePlugin_ProducesMidiOutput
     return true;
@@ -47,7 +47,7 @@ bool DistortionAudioProcessor::producesMidi() const
 #endif
 }
 
-bool DistortionAudioProcessor::isMidiEffect() const
+bool DS2AudioProcessor::isMidiEffect() const
 {
 #if JucePlugin_IsMidiEffect
     return true;
@@ -56,56 +56,56 @@ bool DistortionAudioProcessor::isMidiEffect() const
 #endif
 }
 
-double DistortionAudioProcessor::getTailLengthSeconds() const
+double DS2AudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
 }
 
-int DistortionAudioProcessor::getNumPrograms()
+int DS2AudioProcessor::getNumPrograms()
 {
     return 1;
 }
 
-int DistortionAudioProcessor::getCurrentProgram()
+int DS2AudioProcessor::getCurrentProgram()
 {
     return 0;
 }
 
-void DistortionAudioProcessor::setCurrentProgram(int /*index*/)
+void DS2AudioProcessor::setCurrentProgram(int /*index*/)
 {
 }
 
-const juce::String DistortionAudioProcessor::getProgramName(int /*index*/)
+const juce::String DS2AudioProcessor::getProgramName(int /*index*/)
 {
     return {};
 }
 
-void DistortionAudioProcessor::changeProgramName(int /*index*/, const juce::String &/*newName*/)
+void DS2AudioProcessor::changeProgramName(int /*index*/, const juce::String &/*newName*/)
 {
 }
 
-void DistortionAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+void DS2AudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     mSampleRate = static_cast<float>(sampleRate);
 
-    mOversampling = std::make_unique<juce::dsp::Oversampling<float>>(2, 3, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, false);
+    mOversampling = std::make_unique<juce::dsp::Oversampling<float>>(2, 2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, false);
     mOversampling->initProcessing(static_cast<size_t>(samplesPerBlock));
     mOversampling->reset();
 
-    for (auto &m : mModels)
+    for (auto &m : mModel)
     {
-        m.prepare (sampleRate, 4);
+        m.prepare(sampleRate, 4);
         m.reset();
     }
 }
 
-void DistortionAudioProcessor::releaseResources()
+void DS2AudioProcessor::releaseResources()
 {
     mOversampling.reset();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool DistortionAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
+bool DS2AudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts) const
 {
 #if JucePlugin_IsMidiEffect
     juce::ignoreUnused(layouts);
@@ -124,21 +124,28 @@ bool DistortionAudioProcessor::isBusesLayoutSupported(const BusesLayout &layouts
 }
 #endif
 
-void DistortionAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &/*midiMessages*/)
+void DS2AudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, juce::MidiBuffer &/*midiMessages*/)
 {
-    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     auto numSamples = buffer.getNumSamples();
 
     for (auto i = juce::jmin(2, totalNumInputChannels); i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, numSamples);
 
-    float dist   = mDistortion.getTargetValue();
-    float lvl    = mLevel.getTargetValue();
-    float hpfHz  = mHighPassFrequency.getTargetValue();
-    float lpfHz  = mLowPassFrequency.getTargetValue();
-    for (auto &m : mModels)
-        m.setParams (dist, lvl, hpfHz, lpfHz);
+    float drive = mDrive.getTargetValue() / 100.0f;
+    float tone = mTone.getTargetValue() / 100.0f;
+    float level = mLevel.getTargetValue() / 100.0f;
+
+    TurboMode mode;
+    int idx = static_cast<int>(mMode.getTargetValue() + 0.5f);
+    if (idx >= 1)
+        mode = TurboMode::TurboII;
+    else if (idx >= 0)
+        mode = TurboMode::TurboI;
+
+    for (auto &m : mModel)
+        m.setParams(drive, tone, level, mode);
 
     juce::ScopedNoDenormals noDenormals;
 
@@ -148,35 +155,39 @@ void DistortionAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer, ju
 
     auto osBlock = mOversampling->processSamplesUp(block);
 
-    for (size_t ch = 0; ch < osBlock.getNumChannels() && ch < 2; ++ch)
+    auto numOsChannels = osBlock.getNumChannels();
+    auto numOsSamples = osBlock.getNumSamples();
+
+    for (size_t ch = 0; ch < numOsChannels && ch < 2; ++ch)
     {
         auto *samples = osBlock.getChannelPointer(ch);
-        auto &model = mModels[ch];
-        for (size_t i = 0; i < osBlock.getNumSamples(); ++i)
+        auto &model = mModel[ch];
+
+        for (size_t i = 0; i < numOsSamples; ++i)
             samples[i] = model.processSample(samples[i]);
     }
 
     mOversampling->processSamplesDown(block);
 }
 
-bool DistortionAudioProcessor::hasEditor() const
+bool DS2AudioProcessor::hasEditor() const
 {
     return true;
 }
 
-juce::AudioProcessorEditor *DistortionAudioProcessor::createEditor()
+juce::AudioProcessorEditor *DS2AudioProcessor::createEditor()
 {
     return new juce::GenericAudioProcessorEditor(*this);
 }
 
-void DistortionAudioProcessor::getStateInformation(juce::MemoryBlock &destData)
+void DS2AudioProcessor::getStateInformation(juce::MemoryBlock &destData)
 {
     auto state = mApvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
-void DistortionAudioProcessor::setStateInformation(const void *data, int sizeInBytes)
+void DS2AudioProcessor::setStateInformation(const void *data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
 
@@ -188,6 +199,6 @@ void DistortionAudioProcessor::setStateInformation(const void *data, int sizeInB
 #ifdef EXPORT_CREATE_FILTER_FUNCTION
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter()
 {
-    return new DistortionAudioProcessor();
+    return new DS2AudioProcessor();
 }
 #endif

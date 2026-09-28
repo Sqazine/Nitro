@@ -2,17 +2,17 @@
 
 #include <JuceHeader.h>
 #include "Common/Common.h"
-#include "Distortion/DistortionModel.h"
+#include "DS2/DS2Model.h"
 
-class DistortionAudioProcessor : public juce::AudioProcessor
+class DS2AudioProcessor : public juce::AudioProcessor
 #if JucePlugin_Enable_ARA
 	,
 								 public juce::AudioProcessorARAExtension
 #endif
 {
 public:
-	DistortionAudioProcessor();
-	~DistortionAudioProcessor() override;
+	DS2AudioProcessor();
+	~DS2AudioProcessor() override;
 
 	void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 	void releaseResources() override;
@@ -42,18 +42,17 @@ public:
 	void getStateInformation(juce::MemoryBlock &destData) override;
 	void setStateInformation(const void *data, int sizeInBytes) override;
 
-private:
 	juce::AudioProcessorValueTreeState mApvts;
-	PluginParameterSlider mDistortion;
+	PluginParameterSlider mDrive;
+	PluginParameterSlider mTone;
 	PluginParameterSlider mLevel;
-	PluginParameterSlider mHighPassFrequency;
-	PluginParameterSlider mLowPassFrequency;
+	PluginParameterComboBox mMode;
 
-	DistortionModel mModels[2];
-
-	std::unique_ptr<juce::dsp::Oversampling<float>> mOversampling = std::make_unique<juce::dsp::Oversampling<float>>(2, 3, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, false);
+private:
+	std::unique_ptr<juce::dsp::Oversampling<float>> mOversampling;
+	DS2Model mModel[2];
 
 	float mSampleRate = 44100.0f;
 
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistortionAudioProcessor)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DS2AudioProcessor)
 };

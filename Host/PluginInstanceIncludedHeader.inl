@@ -12,3 +12,5 @@
 #include "JCM800/PluginProcessor.h"
 #include "Tuner/PluginProcessor.h"
 #include "TS808/PluginProcessor.h"
+
+#include "DS2/PluginProcessor.h"

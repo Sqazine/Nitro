@@ -17,3 +17,5 @@
 [] { return std::make_unique<PluginInstanceProxy> (std::make_unique<JCM800AudioProcessor>()); },
 [] { return std::make_unique<PluginInstanceProxy> (std::make_unique<TunerAudioProcessor>()); },
 [] { return std::make_unique<PluginInstanceProxy> (std::make_unique<TS808AudioProcessor>()); },
+
+[] { return std::make_unique<PluginInstanceProxy> (std::make_unique<DS2AudioProcessor>()); },
