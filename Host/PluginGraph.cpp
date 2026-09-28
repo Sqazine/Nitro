@@ -217,6 +217,11 @@ void PluginGraph::newDocument()
     addPlugin (PluginDescriptionAndPreference { pluginFormat.getAllTypes()[2] }, { 0.5,  0.9 });
     addPlugin (PluginDescriptionAndPreference { pluginFormat.getAllTypes()[3] }, { 0.25, 0.9 });
 
+   #ifdef AUDIOPLAYER_ALWAYS_PRESENT
+    if (pluginFormat.getAllTypes().size() > 4)
+        addPlugin (PluginDescriptionAndPreference { pluginFormat.getAllTypes()[4] }, { 0.75, 0.5 });
+   #endif
+
     MessageManager::callAsync ([this]
     {
         setChangedFlag (false);

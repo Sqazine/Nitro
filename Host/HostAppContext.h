@@ -52,3 +52,12 @@ AutoScale getAutoScaleValueForPlugin (const String&);
 void setAutoScaleValueForPlugin (const String&, AutoScale);
 bool shouldAutoScalePlugin (const PluginDescription&);
 void addPluginAutoScaleOptionsSubMenu (AudioPluginInstance*, PopupMenu&);
+
+enum class ConnectionStyle
+{
+    Bezier,
+    Orthogonal
+};
+
+ConnectionStyle getConnectionStyle();
+void setConnectionStyle (ConnectionStyle);

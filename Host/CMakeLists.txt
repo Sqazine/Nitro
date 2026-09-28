@@ -78,7 +78,8 @@ target_sources(${PLUGIN_NAME}_Standalone  PRIVATE ${HOST_SHARED_SRC} ${HOST_STAN
 target_compile_definitions(${PLUGIN_NAME} PUBLIC
                             JUCE_WEB_BROWSER=0
                             JUCE_USE_CURL=0
-                            JUCE_VST3_CAN_REPLACE_VST2=0)
+                            JUCE_VST3_CAN_REPLACE_VST2=0
+                            $<$<NOT:$<CONFIG:Release>>:AUDIOPLAYER_ALWAYS_PRESENT=1>)
 
 # The shared code target needs JUCE_PLUGINHOST_VST3 so that it compiles the
 # bundled VST3 SDK sources (juce_VST3Headers.h only pulls in the SDK

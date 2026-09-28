@@ -27,6 +27,7 @@
 #include "GraphEditorPanel.h"
 #include "PluginInstanceFormat.h"
 #include "MainHostWindow.h"
+#include "HostAppContext.h"
 
 //==============================================================================
 #if JUCE_IOS
@@ -131,13 +132,26 @@ struct GraphEditorPanel::PinComponent final : public Component,
         auto w = (float) getWidth();
         auto h = (float) getHeight();
 
+        auto baseColour = pin.isMIDI() ? Colours::red
+                                       : (isInput ? Colours::yellow
+                                                  : Colours::green);
+
         Path p;
-        p.addEllipse (w * 0.25f, h * 0.25f, w * 0.5f, h * 0.5f);
-        p.addRectangle (w * 0.4f, isInput ? (0.5f * h) : 0.0f, w * 0.2f, h * 0.5f);
 
-        auto colour = (pin.isMIDI() ? Colours::red : Colours::green);
+        if (isInput)
+        {
+            Path outer;
+            outer.addEllipse (w * 0.2f, h * 0.2f, w * 0.6f, h * 0.6f);
+            PathStrokeType stroke (2.5f);
+            stroke.createStrokedPath (p, outer);
+        }
+        else
+        {
+            p.addEllipse (w * 0.1f, h * 0.28f, w * 0.5f, h * 0.44f);
+            p.addRectangle (w * 0.6f, h * 0.4f, w * 0.5f, h * 0.2f);
+        }
 
-        g.setColour (colour.withRotatedHue ((float) busIdx / 5.0f));
+        g.setColour (baseColour.withRotatedHue ((float) busIdx / 5.0f));
         g.fillPath (p);
     }
 
@@ -315,8 +329,8 @@ struct GraphEditorPanel::PluginComponent final : public Component,
                     auto totalSpaces = static_cast<float> (total) + (static_cast<float> (jmax (0, processor->getBusCount (isInput) - 1)) * 0.5f);
                     auto indexPos = static_cast<float> (index) + (static_cast<float> (busIdx) * 0.5f);
 
-                    pin->setBounds (proportionOfWidth ((1.0f + indexPos) / (totalSpaces + 1.0f)) - pinSize / 2,
-                                    pin->isInput ? 0 : (getHeight() - pinSize),
+                    pin->setBounds (isInput ? 0 : (getWidth() - pinSize),
+                                    proportionOfHeight ((1.0f + indexPos) / (totalSpaces + 1.0f)) - pinSize / 2,
                                     pinSize, pinSize);
                 }
             }
@@ -350,12 +364,12 @@ struct GraphEditorPanel::PluginComponent final : public Component,
         int w = 100;
         int h = 60;
 
-        w = jmax (w, (jmax (numIns, numOuts) + 1) * 20);
+        h = jmax (h, (jmax (numIns, numOuts) + 1) * 20);
 
         const int textWidth = font.getStringWidth (processor.getName());
         w = jmax (w, 16 + jmin (textWidth, 300));
         if (textWidth > 300)
-            h = 100;
+            w = 160;
 
         setSize (w, h);
         setName (processor.getName() + formatSuffix);
@@ -703,9 +717,30 @@ struct GraphEditorPanel::ConnectorComponent final : public Component,
 
         linePath.clear();
         linePath.startNewSubPath (p1);
-        linePath.cubicTo (p1.x, p1.y + (p2.y - p1.y) * 0.33f,
-                          p2.x, p1.y + (p2.y - p1.y) * 0.66f,
-                          p2.x, p2.y);
+
+        if (getConnectionStyle() == ConnectionStyle::Orthogonal)
+        {
+            float signX = (p2.x >= p1.x) ? 1.0f : -1.0f;
+            float signY = (p2.y >= p1.y) ? 1.0f : -1.0f;
+            float distX = std::abs (p2.x - p1.x);
+            float distY = std::abs (p2.y - p1.y);
+            float slopeLen = jmin (distX * 0.3f, distY * 0.3f, 25.0f);
+
+            if (slopeLen > 3.0f)
+            {
+                Point<float> mid1 (p1.x + signX * slopeLen, p1.y + signY * slopeLen);
+                Point<float> mid2 (p2.x - signX * slopeLen, p2.y - signY * slopeLen);
+                linePath.lineTo (mid1);
+                linePath.lineTo (mid2);
+            }
+            linePath.lineTo (p2);
+        }
+        else
+        {
+            linePath.cubicTo (p1.x, p1.y + (p2.y - p1.y) * 0.33f,
+                              p2.x, p1.y + (p2.y - p1.y) * 0.66f,
+                              p2.x, p2.y);
+        }
 
         PathStrokeType wideStroke (8.0f);
         wideStroke.createStrokedPath (hitPath, linePath);
@@ -721,9 +756,21 @@ struct GraphEditorPanel::ConnectorComponent final : public Component,
                            -arrowL, -arrowW,
                            arrowL, 0.0f);
 
-        arrow.applyTransform (AffineTransform()
-                                .rotated (MathConstants<float>::halfPi - (float) atan2 (p2.x - p1.x, p2.y - p1.y))
-                                .translated ((p1 + p2) * 0.5f));
+        if (getConnectionStyle() == ConnectionStyle::Orthogonal)
+        {
+            float signX = (p2.x >= p1.x) ? 1.0f : -1.0f;
+            float signY = (p2.y >= p1.y) ? 1.0f : -1.0f;
+            float rotation = std::atan2 (signX, signY);
+            arrow.applyTransform (AffineTransform()
+                                    .rotated (rotation)
+                                    .translated (p2.x, p2.y));
+        }
+        else
+        {
+            arrow.applyTransform (AffineTransform()
+                                    .rotated (MathConstants<float>::halfPi - (float) atan2 (p2.x - p1.x, p2.y - p1.y))
+                                    .translated ((p1 + p2) * 0.5f));
+        }
 
         linePath.addPath (arrow);
         linePath.setUsingNonZeroWinding (true);
@@ -753,12 +800,16 @@ struct GraphEditorPanel::ConnectorComponent final : public Component,
 GraphEditorPanel::GraphEditorPanel (PluginGraph& g)  : graph (g)
 {
     graph.addChangeListener (this);
+    if (auto* settings = getAppProperties().getUserSettings())
+        settings->addChangeListener (this);
     setOpaque (true);
 }
 
 GraphEditorPanel::~GraphEditorPanel()
 {
     graph.removeChangeListener (this);
+    if (auto* settings = getAppProperties().getUserSettings())
+        settings->removeChangeListener (this);
     draggingConnector = nullptr;
     nodes.clear();
     connectors.clear();

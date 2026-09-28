@@ -26,6 +26,7 @@
 #include <JuceHeader.h>
 #include "MainHostWindow.h"
 #include "PluginInstanceFormat.h"
+#include "HostAppContext.h"
 
 constexpr const char *scanModeKey = "pluginScanMode";
 
@@ -552,6 +553,20 @@ PopupMenu MainHostWindow::getMenuForIndex(int topLevelMenuIndex, const String & 
 
         if (autoScaleOptionAvailable)
             menu.addCommandItem(&getCommandManager(), CommandIDs::autoScalePluginWindows);
+
+        menu.addSeparator();
+        {
+            PopupMenu styleMenu;
+            styleMenu.addItem ("Bezier Curve",
+                               true,
+                               getConnectionStyle() == ConnectionStyle::Bezier,
+                               [] { setConnectionStyle (ConnectionStyle::Bezier); });
+            styleMenu.addItem ("45 Degree Slope",
+                               true,
+                               getConnectionStyle() == ConnectionStyle::Orthogonal,
+                               [] { setConnectionStyle (ConnectionStyle::Orthogonal); });
+            menu.addSubMenu ("Connection Style", styleMenu);
+        }
 
         menu.addSeparator();
         menu.addCommandItem(&getCommandManager(), CommandIDs::aboutBox);

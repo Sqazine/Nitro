@@ -176,3 +176,18 @@ void addPluginAutoScaleOptionsSubMenu (AudioPluginInstance* pluginInstance,
 
     menu.addSubMenu ("Auto-scale window", autoScaleMenu);
 }
+
+//==============================================================================
+static const char* connectionStyleKey = "connectionStyle";
+
+ConnectionStyle getConnectionStyle()
+{
+    auto v = getAppProperties().getUserSettings()->getIntValue (connectionStyleKey, 0);
+    return (v == 1) ? ConnectionStyle::Orthogonal : ConnectionStyle::Bezier;
+}
+
+void setConnectionStyle (ConnectionStyle s)
+{
+    getAppProperties().getUserSettings()->setValue (connectionStyleKey, (int) s);
+    getAppProperties().getUserSettings()->sendChangeMessage();
+}
