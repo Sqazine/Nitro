@@ -56,3 +56,6 @@ configure_plugin(TS808)
 
 #DS2
 configure_plugin(DS2)
+
+#OD3
+configure_plugin(OD3)

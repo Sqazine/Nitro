@@ -14,3 +14,4 @@
 #include "TS808/PluginProcessor.h"
 
 #include "DS2/PluginProcessor.h"
+#include "OD3/PluginProcessor.h"

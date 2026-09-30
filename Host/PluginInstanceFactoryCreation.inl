@@ -19,3 +19,4 @@
 [] { return std::make_unique<PluginInstanceProxy> (std::make_unique<TS808AudioProcessor>()); },
 
 [] { return std::make_unique<PluginInstanceProxy> (std::make_unique<DS2AudioProcessor>()); },
+[] { return std::make_unique<PluginInstanceProxy> (std::make_unique<OD3AudioProcessor>()); },

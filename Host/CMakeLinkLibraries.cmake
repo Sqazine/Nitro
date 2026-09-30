@@ -14,4 +14,5 @@ set(AUDIO_EFFECT_LIBS
 	Tuner
 	TS808
 	DS2
+	OD3
 )
